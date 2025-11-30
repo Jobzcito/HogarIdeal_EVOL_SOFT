@@ -1223,3 +1223,108 @@ BEGIN
         SET @Mensaje = ERROR_MESSAGE();
     END CATCH
 END;
+
+
+---Tabla Marca----
+
+CREATE TABLE MARCA(
+    IdMarca INT PRIMARY KEY IDENTITY,
+    Nombre VARCHAR(100) NOT NULL,
+    LugarOrigen VARCHAR(50) NULL,
+    Estado BIT DEFAULT 1,
+    FechaRegistro DATETIME DEFAULT GETDATE()
+);
+GO
+
+
+/* ---------- PROCEDIMIENTOS PARA MARCA -----------------*/
+
+CREATE PROC sp_RegistrarMarca(
+    @Nombre varchar(100),
+    @LugarOrigen varchar(50),
+    @Estado bit,
+    @Resultado int OUTPUT,
+    @Mensaje varchar (500) OUTPUT
+) AS
+BEGIN
+    SET @Resultado = 0
+    SET @Mensaje = ''
+
+ -- Validar nombre (mínimo 2, máximo 100, sin números)
+    IF LEN(@Nombre) BETWEEN 2 AND 100
+       AND PATINDEX('%[0-9]%', @Nombre) = 0
+       AND PATINDEX('%[^A-Za-z ]%', @Nombre) = 0
+    BEGIN
+        -- Validar LugarOrigen (opcional, pero si existe validar formato)
+        IF @LugarOrigen IS NULL 
+           OR (LEN(@LugarOrigen) BETWEEN 2 AND 50 AND PATINDEX('%[^A-Za-z ]%', @LugarOrigen) = 0)
+        BEGIN
+            -- Evitar duplicados
+            IF NOT EXISTS (SELECT 1 FROM MARCA WHERE Nombre = @Nombre)
+            BEGIN
+                INSERT INTO MARCA (Nombre, LugarOrigen, Estado)
+                VALUES (@Nombre, @LugarOrigen, @Estado)
+
+                SET @Resultado = SCOPE_IDENTITY()
+            END
+            ELSE
+                SET @Mensaje = 'El nombre de la marca ya existe.'
+        END
+        ELSE
+            SET @Mensaje = 'El lugar de origen debe tener entre 2 y 50 caracteres, sin números ni símbolos.'
+    END
+    ELSE
+        SET @Mensaje = 'El nombre debe tener entre 2 y 100 caracteres y no contener números ni símbolos.'
+END
+GO
+
+
+CREATE PROC sp_ModificarMarca(
+    @IdMarca int,
+    @Nombre varchar(100),
+    @LugarOrigen varchar(50),
+    @Estado bit,
+    @Resultado int OUTPUT,
+    @Mensaje varchar (500) OUTPUT
+) AS
+BEGIN
+    SET @Resultado = 1
+    SET @Mensaje = ''
+
+ -- Validar nombre
+    IF LEN(@Nombre) BETWEEN 2 AND 100
+       AND PATINDEX('%[0-9]%', @Nombre) = 0
+       AND PATINDEX('%[^A-Za-z ]%', @Nombre) = 0
+    BEGIN
+        -- Validar lugar de origen
+        IF @LugarOrigen IS NULL
+           OR (LEN(@LugarOrigen) BETWEEN 2 AND 50 AND PATINDEX('%[^A-Za-z ]%', @LugarOrigen) = 0)
+        BEGIN
+            -- Validar duplicados
+            IF NOT EXISTS (SELECT 1 FROM MARCA WHERE Nombre = @Nombre AND IdMarca != @IdMarca)
+            BEGIN
+                UPDATE MARCA
+                SET Nombre = @Nombre,
+                    LugarOrigen = @LugarOrigen,
+                    Estado = @Estado
+                WHERE IdMarca = @IdMarca
+            END
+            ELSE
+            BEGIN
+                SET @Resultado = 0
+                SET @Mensaje = 'El nombre de la marca ya existe.'
+            END
+        END
+        ELSE
+        BEGIN
+            SET @Resultado = 0
+            SET @Mensaje = 'El lugar de origen debe tener entre 2 y 50 caracteres, sin números ni símbolos.'
+        END
+    END
+    ELSE
+    BEGIN
+        SET @Resultado = 0
+        SET @Mensaje = 'El nombre debe tener entre 2 y 100 caracteres y no contener números ni símbolos.'
+    END
+END
+GO
